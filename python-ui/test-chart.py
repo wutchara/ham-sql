@@ -1,6 +1,7 @@
 from tkinter import *
 import argparse
 import sys
+import os
 import numpy as np
 import mysql.connector
 import matplotlib.pyplot as plt
@@ -17,6 +18,9 @@ my_parser = argparse.ArgumentParser(description='List of parameters')
 my_parser.add_argument('--phd',
                        type=int,
                        help='the phd value', required=True)
+my_parser.add_argument('--hddsn',
+                       type=str,
+                       help='the hddsn value', required=True)
 
 # Execute the parse_args() method
 args = my_parser.parse_args()
@@ -33,7 +37,7 @@ def exitError(message, code):
 
 def readFile(fileName):
     try:
-        file1 = open("./data/" + fileName, "r+")
+        file1 = open(getFilePath() + "/" + fileName, "r+")
         # print("Output of Read function is ")
         # print(file1.read())
 
@@ -66,7 +70,7 @@ def readFile(fileName):
                     column.append(val[i])
 
             result[headerName] = column
-            result['Index'] = range(1, len(column) + 1)  # TODO:
+            result['Index'] = range(1, len(column) + 1)
 
         return result, headerRow
     except:
@@ -81,9 +85,16 @@ def convertToInt(strArr):
     return [int(x) for x in strArr]
 
 
-def plot(phd, chartSize):
-    # TODO: file name
-    fileName = "8LGSRWNN-phd-" + str(phd) + ".csv"
+def getFileName(args):
+    return args.hddsn + "-phd-" + str(args.phd) + ".csv"
+
+
+def getFilePath():
+    return "./data/temp"
+
+
+def plot(args, chartSize):
+    fileName = getFileName(args)
     print("Try to read file: ", fileName)
     result, headers = readFile(fileName)
     displayColumns = getDisplayColumns()
@@ -165,7 +176,7 @@ def connectDatabase():
         mydb = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="passwordx",
+            password="password",
             database="db"
         )
 
@@ -178,22 +189,42 @@ def connectDatabase():
         databaseConnectionError()
 
 
-def readDatabaseData(mydb):
+def writeFile(fileName, contents):
+    # create directory
+    path = getFilePath()
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("create new directory successfully")
+
+    myFile = open(path + "/" + fileName, "w")
+    myFile.write(contents)
+    myFile.close()
+    print("create/overwrite new file successfully: " + path + "/" + fileName)
+
+
+def readDatabaseData(mydb, args):
+    columns = ["phd", "subqualifier", "avermrval_0",
+               "avermrval_1", "procid", "drivetemp"]
+
+    query = "SELECT {} FROM ccb_ci_rmr WHERE hddsn='{}' AND phd={}".format(
+        ",".join(columns), args.hddsn, args.phd)
+    print("query:", query)
     mycursor = mydb.cursor()
-    mycursor.execute("SELECT * FROM Persons")
+    mycursor.execute(query)
     myresult = mycursor.fetchall()
+
+    # Generate string file
+    strRows = [",".join(columns)]
     for x in myresult:
-        print(x)
+        strRows.append(",".join(str(v) for v in x))
+
+    writeFile(getFileName(args), "\n".join(strRows))
 
 
 def validatePHD(args):
     # [0, 17]
     if args.phd not in range(0, 18):
         exitError("PHD out of range", 1)
-
-# TODO: format data
-# myDatabaseConnection = connectDatabase()
-# readDatabaseData(myDatabaseConnection)
 
 
 # the main Tkinter window
@@ -222,11 +253,15 @@ window.geometry("900x300")
 # args = getArguments(sys.argv[1:])
 print('args', args)
 print('args.phd', args.phd)
+print('args.hddsn', args.hddsn)
 validatePHD(args)
+
+myDatabaseConnection = connectDatabase()
+readDatabaseData(myDatabaseConnection, args)
 
 # in main window
 # plot_button.pack()
-plot(args.phd, (300, 100))
+plot(args, (300, 100))
 
 # run the gui
 window.mainloop()
