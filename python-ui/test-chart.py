@@ -1,5 +1,6 @@
 from tkinter import *
 import numpy as np
+import mysql.connector
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
@@ -57,7 +58,8 @@ def convertToInt(strArr):
 
 
 def plot():
-    result, headers = readFile("8LGSRWNN-phd-0.csv")
+    fileName = "8LGSRWNN-phd-0.csv"
+    result, headers = readFile(fileName)
     displayColumns = getDisplayColumns()
 
     # the figure that will contain the plot
@@ -83,6 +85,7 @@ def plot():
 
     plot1.legend()
     plot1.set_yticks(np.arange(y.min(), y.max(), 10))
+    plot1.set_title(fileName)
 
     # creating the Tkinter canvas
     # containing the Matplotlib figure
@@ -102,15 +105,52 @@ def plot():
     canvas.get_tk_widget().pack()
 
 
+def databaseConnectionError():
+    print("Can't connect database, Please make sure your credentials")
+    exit(1)
+
+
+def connectDatabase():
+    # TODO: move to args
+    try:
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="passwordx",
+            database="db"
+        )
+
+        if not mydb.is_connected():
+            databaseConnectionError()
+
+        return mydb
+    except:
+        print("An exception occurred")
+        databaseConnectionError()
+
+
+def readDatabaseData(mydb):
+    mycursor = mydb.cursor()
+    mycursor.execute("SELECT * FROM Persons")
+    myresult = mycursor.fetchall()
+    for x in myresult:
+        print(x)
+
+# TODO: format data
+# myDatabaseConnection = connectDatabase()
+# readDatabaseData(myDatabaseConnection)
+
+
 # the main Tkinter window
 window = Tk()
 
 # setting the title
-window.title('Plotting in Tkinter')
+window.title('Krittiya\'s charts')
 
 # dimensions of the main window
 window.geometry("500x500")
 
+# TODO: Refresh button
 # button that displays the plot
 # plot_button = Button(master = window,
 #                      command = plot,
